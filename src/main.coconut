@@ -1,0 +1,82 @@
+#!/usr/bin/env coconut-run
+# coconut-envdiff - diff two .env files by key, never leaking secret values.
+# Coconut (a Python superset); standard library only.
+
+import sys
+import os
+
+
+def clean_value(v):
+    """Strip matching surrounding quotes from a value."""
+    if len(v) >= 2 and v[0] == v[-1] and v[0] in ("'", '"'):
+        return v[1:-1]
+    return v
+
+
+def parse_line(raw):
+    """Return (key, value) for a meaningful .env line, else None."""
+    match raw.strip():
+        case "":
+            return None
+        case s if s.startswith("#"):
+            return None
+        case s:
+            if s.startswith("export "):
+                s = s[7:].lstrip()
+            if "=" not in s:
+                return None
+            key, _, value = s.partition("=")
+            key = key.strip()
+            if not key:
+                return None
+            return (key, clean_value(value.strip()))
+
+
+def parse_env(path):
+    """Read a .env file into a dict (last assignment wins)."""
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        text = f.read()
+    pairs = text.splitlines() |> map$(parse_line) |> filter$(p -> p is not None) |> list
+    return dict(pairs)
+
+
+def diff(a, b):
+    """Keys only in b (added), only in a (removed), or changed in value."""
+    added = sorted(k for k in b if k not in a)
+    removed = sorted(k for k in a if k not in b)
+    changed = sorted(k for k in a if k in b and a[k] != b[k])
+    return added, removed, changed
+
+
+def usage():
+    print("usage: coconut-envdiff <a.env> <b.env>", file=sys.stderr)
+    sys.exit(2)
+
+
+def main():
+    args = sys.argv[1:]
+    if len(args) != 2:
+        usage()
+    a_path, b_path = args
+    for p in (a_path, b_path):
+        if not os.path.isfile(p):
+            print(f"coconut-envdiff: no such file: {p}", file=sys.stderr)
+            sys.exit(2)
+    try:
+        a = parse_env(a_path)
+        b = parse_env(b_path)
+    except OSError as e:
+        print(f"coconut-envdiff: cannot read: {e}", file=sys.stderr)
+        sys.exit(2)
+    added, removed, changed = diff(a, b)
+    for k in added:
+        print("+ " + k)
+    for k in removed:
+        print("- " + k)
+    for k in changed:
+        print("~ " + k)
+    print(f"{len(added)} added, {len(removed)} removed, {len(changed)} changed")
+    sys.exit(1 if (added or removed or changed) else 0)
+
+
+main()
