@@ -1,4 +1,5 @@
 build.sh linguist-generated=true
 test.sh linguist-generated=true
-*.coconut linguist-language=Coconut
+# Coconut is a Python superset; Linguist has no Coconut entry, so badge as Python.
+*.coconut linguist-language=Python
 src/__coconut_cache__/** linguist-vendored=true
