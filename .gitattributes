@@ -1,2 +1,4 @@
 build.sh linguist-generated=true
 test.sh linguist-generated=true
+*.coconut linguist-language=Coconut
+src/__coconut_cache__/** linguist-vendored=true
